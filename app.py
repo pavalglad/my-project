@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler, MaxAbsScaler
+from sklearn.preprocessing import MinMaxScaler, RobustScaler
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression, LogisticRegression
@@ -99,6 +99,8 @@ def main_app():
         st.markdown("### Walmart Data Science Dashboard")
         st.markdown("Insights powered by Machine Learning 📊")
 
+        st.session_state.task_type = st.radio("Select Task Type", ["Regression", "Classification"])
+
         if st.button("Upload Dataset"): st.session_state.nav = "Upload Dataset"
         if st.button("Data Preprocessing"): st.session_state.nav = "Data Preprocessing"
         if st.button("Feature Selection"): st.session_state.nav = "Feature Selection"
@@ -160,13 +162,12 @@ def main_app():
         if p2.button("Outliers"): st.session_state.active_subsection = "outliers"
         if p3.button("Normalization"): st.session_state.active_subsection = "normalization"
 
-        # =========================
+       # =========================
         # Missing Data Dashboard
-        #=========================
+        # =========================
         if st.session_state.active_subsection == "missing":
             st.subheader("Missing Data Techniques")
 
-          
             # Ensure df is defined
             df = st.session_state.df
             df_missing = df.copy()
@@ -174,43 +175,45 @@ def main_app():
             # Define numeric columns once, outside the button block
             num_cols = df.select_dtypes(include="number").columns
 
-            # Check for missing values
-            missing_detected = df.isnull().sum().sum() > 0
-            if missing_detected and "missing_applied" not in st.session_state:
-                st.markdown("""
-                    <div style='color: red; font-weight: bold; font-size: 16px; margin-bottom: 10px;'>
-                        🔴 Missing values detected! Please choose a technique below.
-                    </div>
-                """, unsafe_allow_html=True)
-
-            method = st.radio("Choose a technique:", ["Mean Imputation", "Median Imputation", "Mode Imputation", "Drop Missing Rows"])
+            # Add a default "None" option so user must choose explicitly
+            method = st.radio(
+                "Choose a technique:",
+                ["None (Select a technique)", "Mean Imputation", "Median Imputation", "Mode Imputation", "Drop Missing Rows"]
+            )
 
             if st.button("Apply Missing Data Technique"):
                 st.session_state["missing_applied"] = True
 
-            if method == "Mean Imputation":
-                df_missing[num_cols] = df_missing[num_cols].fillna(df_missing[num_cols].mean())
-                st.dataframe(df_missing.describe(), width="stretch")
+                if method == "None (Select a technique)":
+                    st.warning("⚠️ Please select a valid technique to apply.")
 
-            elif method == "Median Imputation":
-                df_missing[num_cols] = df_missing[num_cols].fillna(df_missing[num_cols].median())
-                st.dataframe(df_missing.describe(), width="stretch")
+                elif method == "Mean Imputation":
+                    df_missing[num_cols] = df_missing[num_cols].fillna(df_missing[num_cols].mean())
+                    st.dataframe(df_missing.describe(), width="stretch")
 
-            elif method == "Mode Imputation":
-                for col in df_missing.columns:
-                   mode_val = df_missing[col].mode()
-                   if not mode_val.empty:
-                       df_missing[col] = df_missing[col].fillna(mode_val[0])
-                st.dataframe(df_missing.describe(include="all"), width="stretch")
+                elif method == "Median Imputation":
+                    df_missing[num_cols] = df_missing[num_cols].fillna(df_missing[num_cols].median())
+                    st.dataframe(df_missing.describe(), width="stretch")
 
-            elif method == "Drop Missing Rows":
-                df_dropped = df_missing.dropna()
-                st.dataframe(df_dropped.describe(), width="stretch")
+                elif method == "Mode Imputation":
+                    for col in df_missing.columns:
+                        mode_val = df_missing[col].mode()
+                        if not mode_val.empty:
+                            df_missing[col] = df_missing[col].fillna(mode_val[0])
+                    st.dataframe(df_missing.describe(include="all"), width="stretch")
+
+                elif method == "Drop Missing Rows":
+                    df_dropped = df_missing.dropna()
+                    st.dataframe(df_dropped.describe(), width="stretch")
 
         # Outliers Dashboard
         elif st.session_state.active_subsection == "outliers":
             st.subheader("Outlier Detection Techniques")
-            method = st.radio("Choose a technique:", ["Z-Score Method", "IQR Method", "Percentile Clipping", "Isolation (NaN Flag)"])
+                #Add a default "None" option so user must choose explicitly
+            method = st.radio(
+                "Choose a technique:",
+                ["None (Select a technique)", "Z-Score Method", "IQR Method", "Percentile Clipping", "Isolation (NaN Flag)"]
+            )
             if st.button("Apply Outlier Detection"):
                 df_out = df.copy()
                 num_cols = df.select_dtypes(include="number").columns
@@ -261,31 +264,26 @@ def main_app():
         # Normalization Dashboard
         elif st.session_state.active_subsection == "normalization":
             st.subheader("Normalization Techniques")
-            method = st.radio("Choose a technique:", [
-                "Min-Max Scaling (0 to 1)",
-                "Min-Max Scaling (-1 to 1)",
-                "Standard Scaling (mean=0, std=1)",
-                "MaxAbs Scaling"
-            ])
+            # Add a default "None" option so user must choose explicitly
+            method = st.radio(
+                "Choose a technique:",
+                ["None (Select a technique)", "Min-Max Scaling (0 to 1)", "Min-Max Scaling (-1 to 1)"]
+            )
             if st.button("Apply Normalization"):
                 df_norm = df.copy()
                 num_cols = df.select_dtypes(include="number").columns
+
                 if method == "Min-Max Scaling (0 to 1)":
                     scaler = MinMaxScaler(feature_range=(0, 1))
                     df_norm[num_cols] = scaler.fit_transform(df[num_cols])
-                    st.dataframe(df_norm.describe(), width="stretch")
+        
                 elif method == "Min-Max Scaling (-1 to 1)":
                     scaler = MinMaxScaler(feature_range=(-1, 1))
                     df_norm[num_cols] = scaler.fit_transform(df[num_cols])
-                    st.dataframe(df_norm.describe(), width="stretch")
-                elif method == "Standard Scaling (mean=0, std=1)":
-                    scaler = StandardScaler()
-                    df_norm[num_cols] = scaler.fit_transform(df[num_cols])
-                    st.dataframe(df_norm.describe(), width="stretch")
-                elif method == "MaxAbs Scaling":
-                    scaler = MaxAbsScaler()
-                    df_norm[num_cols] = scaler.fit_transform(df[num_cols])
-                    st.dataframe(df_norm.describe(), width="stretch")
+            
+                st.session_state.df = df_norm 
+                st.success("Normalization applied! Dataset updated for training/testing.") 
+                st.dataframe(df_norm.describe(), width="stretch")
 
     # =========================
     # FEATURE SELECTION
@@ -302,6 +300,11 @@ def main_app():
             st.stop()
         target = st.selectbox("Select Target Column (Numeric Only)", numeric_columns)
         st.session_state.target_column = target
+
+        if st.session_state.task_type == "Classification": 
+            df['Target_Class'] = pd.qcut(df[target], q=3, labels=["Low", "Medium", "High"]) 
+            st.session_state.target_column = "Target_Class"
+
         method = st.selectbox("Select Feature Selection Technique", ["Correlation", "Variance Threshold"])
         features = df.drop(columns=[target]).select_dtypes(include="number")
         y = df[target]
@@ -396,19 +399,21 @@ def main_app():
             # Confusion Matrix
             cm = confusion_matrix(st.session_state.y_test, y_pred_test)
             st.write("Confusion Matrix:")
-            st.dataframe(pd.DataFrame(cm, 
-                                    index=["Actual Negative", "Actual Positive"], 
-                                    columns=["Predicted Negative", "Predicted Positive"]), 
-                            width="stretch")
+            st.dataframe(pd.DataFrame(cm,
+                                  index=["Actual Negative", "Actual Positive"],
+                                  columns=["Predicted Negative", "Predicted Positive"]),
+                     width="stretch")
 
-            # Accuracy, Precision, Recall
+            # Metrics
             acc = accuracy_score(st.session_state.y_test, y_pred_test)
             prec = precision_score(st.session_state.y_test, y_pred_test, average="binary")
             rec = recall_score(st.session_state.y_test, y_pred_test, average="binary")
+            f1 = (2 * prec * rec) / (prec + rec)
 
             st.write(f"Accuracy: {acc:.2f}")
             st.write(f"Precision: {prec:.2f}")
             st.write(f"Recall: {rec:.2f}")
+            st.write(f"F1 Score: {f1:.2f}")
 
             # ROC Curve (only for binary classification)
             if len(set(st.session_state.y_test)) == 2:
@@ -423,7 +428,7 @@ def main_app():
                 ax.legend(loc="lower right")
                 st.pyplot(fig)
             else:
-                st.warning("ROC curve only available for binary classification.")
+               st.warning("ROC curve only available for binary classification.")
 
 
 
@@ -431,26 +436,26 @@ def main_app():
     # =========================  
     # MODEL COMPARISON 
     # ========================= 
-    elif nav == "Model Comparison": 
-        if st.session_state.X_train is None: 
-            st.warning("Please complete train/test split first.") 
+    elif nav == "Model Comparison":
+        if st.session_state.X_train is None:
+            st.warning("Please complete train/test split first.")
             st.stop()
-    
+
         st.header("Model Comparison")
         if st.session_state.task_type == "Regression":
             models = {
-            "Linear Regression": LinearRegression(),
-            "Decision Tree": DecisionTreeRegressor(),
-            "Random Forest": RandomForestRegressor(),
-            "XGBoost": XGBRegressor()
-        }
+                "Linear Regression": LinearRegression(),
+                "Decision Tree": DecisionTreeRegressor(),
+                "Random Forest": RandomForestRegressor(),
+                "XGBoost": XGBRegressor()
+            }
         else:
             models = {
-            "Logistic Regression": LogisticRegression(max_iter=500),
-            "Decision Tree": DecisionTreeClassifier(),
-            "Random Forest": RandomForestClassifier(),
-            "XGBoost": XGBClassifier()
-        }
+                "Logistic Regression": LogisticRegression(max_iter=500),
+                "Decision Tree": DecisionTreeClassifier(),
+                "Random Forest": RandomForestClassifier(),
+                "XGBoost": XGBClassifier()
+            }
 
         results = []
         for name, model in models.items():
@@ -465,20 +470,21 @@ def main_app():
                 acc = accuracy_score(st.session_state.y_test, y_pred)
                 prec = precision_score(st.session_state.y_test, y_pred, average="binary")
                 rec = recall_score(st.session_state.y_test, y_pred, average="binary")
-            
-               # AUC only for binary classification
+                f1 = (2 * prec * rec) / (prec + rec)
+
                 if len(set(st.session_state.y_test)) == 2:
-                   y_score = model.predict_proba(st.session_state.X_test)[:, 1]
-                   auc_score = roc_auc_score(st.session_state.y_test, y_score)
+                    y_score = model.predict_proba(st.session_state.X_test)[:, 1]
+                    auc_score = roc_auc_score(st.session_state.y_test, y_score)
                 else:
                     auc_score = None
 
                 results.append({
-                "Model": name,
-                "Accuracy": round(acc, 2),
-                "Precision": round(prec, 2),
-                "Recall": round(rec, 2),
-                "AUC": round(auc_score, 2) if auc_score is not None else "N/A"
+                    "Model": name,
+                    "Accuracy": round(acc, 2),
+                    "Precision": round(prec, 2),
+                    "Recall": round(rec, 2),
+                    "F1 Score": round(f1, 2),
+                    "AUC": round(auc_score, 2) if auc_score is not None else "N/A"
                 })
 
         st.session_state.model_results = results
@@ -487,25 +493,28 @@ def main_app():
         st.subheader("Model Performance Comparison")
         st.dataframe(results_df, width="stretch")
 
-        # Visualization
-        fig, ax = plt.subplots(figsize=(8, 5))
-        if st.session_state.task_type == "Regression":
-            bars = ax.barh(results_df["Model"], results_df["R² Score"], color="#0071ce")
-            ax.set_xlabel("R² Score")
-            ax.set_title("Model Comparison - R² Scores")
-            ax.set_xlim(0, 1.0)
-            for bar in bars:
-                width = bar.get_width()
-                ax.text(width + 0.01, bar.get_y() + bar.get_height()/2, f"{width:.2f}", va="center")
+        # Visualization (Classification Metrics Only)
+        fig, ax = plt.subplots(figsize=(10, 6))
+
+        # Pick available classification metric columns
+        metric_candidates = ["Accuracy", "F1 Score", "Precision", "Recall", "AUC"]
+        available_metrics = [m for m in metric_candidates if m in results_df.columns]
+
+        if available_metrics:
+            results_df.plot(
+                x="Model",
+                y=available_metrics,
+                kind="bar",
+                ax=ax,
+                color=["#0071ce", "#ffc220", "#28a745", "#d63384", "#6f42c1"][:len(available_metrics)]
+            )
+            ax.set_title("Model Comparison - Classification Metrics")
+            ax.set_ylabel("Score")
+            ax.legend(loc="best")
         else:
-            bars = ax.barh(results_df["Model"], results_df["Accuracy"], color="#0071ce")
-            ax.set_xlabel("Accuracy")
-            ax.set_title("Model Comparison - Accuracy")
-            ax.set_xlim(0, 1.0)
-            for bar in bars:
-                width = bar.get_width()
-                ax.text(width + 0.01, bar.get_y() + bar.get_height()/2, f"{width:.2f}", va="center")
-        ax.invert_yaxis()
+            st.warning("No classification metrics available to plot.")
+            ax.set_xticklabels(results_df["Model"], rotation=45, ha="right")
+
         st.pyplot(fig)
 
 
